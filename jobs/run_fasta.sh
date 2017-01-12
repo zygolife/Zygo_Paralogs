@@ -25,4 +25,6 @@ INFILE=files
 F=`sed -n ${N}p $INFILE`
 OUT=results
 base=`basename $F .aa.fasta`
-fasta36 -T $CPU -E 1e-15 -m 8c $F $F > $OUT/$base.FASTA.tab
+if [ ! -f $OUT/$base.FASTA.tab ]; then
+ fasta36 -T $CPU -E 1e-15 -m 8c $F $F > $OUT/$base.FASTA.tab
+fi
