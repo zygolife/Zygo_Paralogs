@@ -4,6 +4,8 @@ Steps
 * calculate kaks for all pairs
 * plot distribution of pairwise ks to look for WGD patterns
 
+```
 sbatch --array=1-88 jobs/make_pep.sh
 ls pep/*.aa.fasta > list
 sbatch --array=1-88 jobs/run_fasta.sh
+```
