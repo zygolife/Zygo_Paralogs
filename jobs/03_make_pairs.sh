@@ -4,6 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=1:00:00
 #SBATCH --job-name=make_pair_CDS
+#SBATCH -p batch
 
 N=${SLURM_ARRAY_TASK_ID}
 if [ ! $N ]; then

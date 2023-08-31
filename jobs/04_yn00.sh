@@ -21,7 +21,7 @@ if [ ! -d $DIR ]; then
 fi
 
 if [ ! -f $DIR/$pairdir.yn00.tab ]; then
- cat lib/header > $DIR/$dir.yn00.tab
+ cat lib/header > $DIR/$pairdir.yn00.tab
  $SUBOPT/yn00_cds_prealigned $INDIR/$pairdir/*.cds.fasaln | grep -v kappa >> $DIR/$pairdir.yn00.tab
 else
  echo "not running $dir, $DIR/$pairdir.yn00.tab already exists"
