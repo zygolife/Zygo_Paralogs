@@ -5,24 +5,36 @@ use warnings;
 use Bio::SeqIO;
 use Bio::DB::Fasta;
 use File::Spec;
-
-my $cdsfolder = 'transcripts';
+use Getopt::Long;
+my $zcat = 'zcat'; # can be replaced with `gzip -d -c";
+my $cdsfolder = 'CDS';
 my $pepfolder = 'pep';
-my $outfolder = 'pairs-test';
-my $file = shift || die"need a file";
+my $outfolder = 'pairs';
 
-open(my $fh => $file) || die "cannot open $file";
+GetOptions('z|zcat:s' => \$zcat,
+	   'c|cds:s'  => \$cdsfolder,
+	   'p|pep:s'  => \$pepfolder,
+	   'o|out:s'  => \$outfolder);
+
+my $file = shift || die"need a file";
+my $fh;
 my (undef,undef,$filename) = File::Spec->splitpath($file);
-my $basename;
-if ( $filename =~ /(\S+)\.FASTA.tab$/ ) {
- $basename = $1;
-} else {
+unless ( $filename =~ /(\S+)\.FASTA.tab(\.gz)?$/ ) {
  die "input report unexpected name: $filename"
 }
+my ($basename,$ext) = ($1,$2);
+if( $ext ) {
+ open($fh => "$zcat $file |") || die "Cannot open $file with zcat: $!";
+} else {
+ open($fh => $file) || die "cannot open $file";
+}
 
+if ( ! -d $outfolder ) {
+ mkdir($outfolder);
+}
 my $pairct = 0;
 my $pepdb = Bio::DB::Fasta->new(sprintf("%s/%s.aa.fasta",$pepfolder,$basename));
-my $cdsdb = Bio::DB::Fasta->new(sprintf("%s/%s.CDS.fasta",$cdsfolder,$basename));
+my $cdsdb = Bio::DB::Fasta->new(sprintf("%s/%s.cds.fasta",$cdsfolder,$basename));
 my $min_aligned = 0.60;
 my %seen;
 while(<$fh>) {
@@ -62,29 +74,28 @@ while(<$fh>) {
 # JGI doesn't produce clean CDS files, not sure why, recode these
 # positions as 'X' then encode these as gaps after the alignment is performed
 # see the mr_trans.pl script in this folder
- if( $qseq->seq =~ /\*/ ) { 
+ if( $qseq->seq =~ /[\*X]/ ) { 
     my $s = $qseq->seq;
     my $scds = $qcds->seq;
-    if( $s =~ s/\*$// ) { # drop trailing stop codon completely
-	$s = substr($s,0,$qseq->length - 1);
-	$scds = substr($scds,0,$qcds->length - 3)
+    if( $s =~ s/[\*X]$// ) { # drop trailing stop codon completely
+	$s = substr($s,0,-1);
+	$scds = substr($scds,0,-3)
     }
     # any other stop codon should be recoded as an X to be handled by
     # the aligner and then swapped out by mrtrans
     $s =~ s/\*/X/g;
     # have to rewrite the seq object because Bio::DB::Fasta essentially produces
     # read-only objects , otherwise would just update ->seq() in place   
-    $qseq = Bio::PrimarySeq->new(-id => $qseq->id, -seq => $s, -desc => $qseq->description);
     $qcds = Bio::PrimarySeq->new(-id => $qcds->id, -seq => $scds, -desc => $qcds->description);
+    $qseq = $qcds->translate(); #Bio::PrimarySeq->new(-id => $qseq->id, -seq => $s, -desc => $qseq->description);
  } 
-
-if( $tseq->seq =~ /\*/ ) {
+ if( $tseq->seq =~ /[\*X]/ ) {
     my $s = $tseq->seq; # the protein
     my $scds = $tcds->seq; # the CDS
 
-    if( $s =~ s/\*$// ) { # drop trailing stop codon completely
-	$s = substr($s,0,$tseq->length - 1);
-	$scds = substr($scds,0,$tcds->length - 3);
+    if( $s =~ s/[\*X]$// ) { # drop trailing stop codon completely
+	$s = substr($s,0, -1);
+	$scds = substr($scds,0, -3);
     }
     # any other stop codon should be recoded as an X to be handled by  
     # the aligner and then swapped out by mrtrans
@@ -92,9 +103,10 @@ if( $tseq->seq =~ /\*/ ) {
     # have to rewrite the seq object because Bio::DB::Fasta essentially produces
     # read-only objects , otherwise would just update ->seq() in place   
 
-    $tseq = Bio::PrimarySeq->new(-id => $tseq->id, -seq => $s, -desc => $tseq->description);
     $tcds = Bio::PrimarySeq->new(-id => $tcds->id, -seq => $scds, -desc => $tcds->description);
- }
+    $tseq = $tcds->translate(); #Bio::PrimarySeq->new(-id => $tseq->id, -seq => $s, -desc => $tseq->description);
+  }
+    
  $cdsout->write_seq($qcds);
  $cdsout->write_seq($tcds);
  $pepout->write_seq($qseq);
